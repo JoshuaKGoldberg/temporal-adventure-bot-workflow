@@ -73,6 +73,8 @@ async function resolveChoice(
 	channel: string,
 ) {
 	for (;;) {
+		// A hook only lives for one round. Reusing one leaves the losing side of
+		// the race attached to it, which silently swallows a later /force.
 		const forceHook = createHook<ForceInput>({
 			token: forceHookToken(channel),
 		});
@@ -83,6 +85,10 @@ async function resolveChoice(
 		]);
 
 		forceHook.dispose();
+
+		// Disposal only commits when the workflow suspends, so suspend before the
+		// next round registers the same token and conflicts with this one
+		await sleep("1s");
 
 		if ("forced" in outcome) {
 			if (!withinOptions(outcome.forced, options)) {

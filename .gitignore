@@ -1,6 +1,8 @@
+/.env
 /.nitro
 /.output
 /.swc
+/.workflow-data
 /coverage
 /lib
 /node_modules
