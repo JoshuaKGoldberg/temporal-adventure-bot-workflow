@@ -1,8 +1,8 @@
 import { Context, Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { resumeHook, start } from "workflow/api";
+import { getHookByToken, resumeHook, start } from "workflow/api";
 
-import { forceHookToken, parseCommandText } from "./force.js";
+import { forceHookToken, gameHookToken, parseCommandText } from "./force.js";
 import { runGame } from "./workflows.js";
 
 const isFromSlack = (
@@ -41,6 +41,15 @@ const verify = (context: Context, body: string) =>
 		context.req.header("x-slack-request-timestamp") ?? null,
 	);
 
+const hasRunningGame = async (channel: string) => {
+	try {
+		return !!(await getHookByToken(gameHookToken(channel)));
+	} catch {
+		// getHookByToken throws rather than returning null for unclaimed tokens
+		return false;
+	}
+};
+
 const app = new Hono();
 
 app.get("/", (context) => context.text("Adventure bot is awake. 👋"));
@@ -56,6 +65,10 @@ app.post("/start", async (context) => {
 
 	if (!channel) {
 		return context.text("Missing SLACK_CHANNEL.", 500);
+	}
+
+	if (await hasRunningGame(channel)) {
+		return context.text("A game is already running in this channel. 🎲");
 	}
 
 	const run = await start(runGame, ["begin", channel]);

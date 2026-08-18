@@ -2,6 +2,7 @@
 /.nitro
 /.output
 /.swc
+/.vercel
 /.workflow-data
 /coverage
 /lib

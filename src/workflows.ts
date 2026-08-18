@@ -1,6 +1,6 @@
 import { createHook, sleep } from "workflow";
 
-import { forceHookToken, printForced } from "./force.js";
+import { forceHookToken, gameHookToken, printForced } from "./force.js";
 import { game } from "./game.js";
 import { settings } from "./settings.js";
 import { createPoll, getReactions, pinMessage, postMessage } from "./slack.js";
@@ -34,6 +34,15 @@ const withinOptions = (forced: ForceInput, options: GameOption[]) =>
 
 export async function runGame(startingEntry: string, channel: string) {
 	"use workflow";
+
+	// Claiming this token registers the run as the channel's only game. Two
+	// games in one channel would fight over the per-round force token.
+	const gameHook = createHook({ token: gameHookToken(channel) });
+	const conflict = await gameHook.getConflict();
+
+	if (conflict) {
+		return `already running as ${conflict.runId}`;
+	}
 
 	const instructions = await postMessage({ text: announcement });
 
