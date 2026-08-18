@@ -1,3 +1,6 @@
+/.nitro
+/.output
+/.swc
 /coverage
 /lib
 /node_modules

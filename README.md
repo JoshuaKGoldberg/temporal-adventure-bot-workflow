@@ -11,21 +11,49 @@
 	<a href="https://github.com/JoshuaKGoldberg/temporal-adventure-bot-workflow/blob/main/.github/CODE_OF_CONDUCT.md" target="_blank"><img alt="🤝 Code of Conduct: Kept" src="https://img.shields.io/badge/%F0%9F%A4%9D_code_of_conduct-kept-21bb42" /></a>
 	<a href="https://codecov.io/gh/JoshuaKGoldberg/temporal-adventure-bot-workflow" target="_blank"><img alt="🧪 Coverage" src="https://img.shields.io/codecov/c/github/JoshuaKGoldberg/temporal-adventure-bot-workflow?label=%F0%9F%A7%AA%20coverage" /></a>
 	<a href="https://github.com/JoshuaKGoldberg/temporal-adventure-bot-workflow/blob/main/LICENSE.md" target="_blank"><img alt="📝 License: MIT" src="https://img.shields.io/badge/%F0%9F%93%9D_license-MIT-21bb42.svg" /></a>
-	<a href="http://npmjs.com/package/temporal-adventure-bot-workflow" target="_blank"><img alt="📦 npm version" src="https://img.shields.io/npm/v/temporal-adventure-bot-workflow?color=21bb42&label=%F0%9F%93%A6%20npm" /></a>
 	<img alt="💪 TypeScript: Strict" src="https://img.shields.io/badge/%F0%9F%92%AA_typescript-strict-21bb42.svg" />
 </p>
 
 ## Usage
 
+A [Vercel Workflow](https://useworkflow.dev) port of [temporal-adventure-bot](https://github.com/JoshuaKGoldberg/temporal-adventure-bot).
+The game logic is the same; durable execution comes from the Workflow DevKit instead of a Temporal server, so there's no worker process to keep alive.
+
+Create a `.env` with a [Slack app](https://api.slack.com/apps)'s credentials:
+
 ```shell
-npm i temporal-adventure-bot-workflow
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_CHANNEL=C0123456789
+SLACK_SIGNING_SECRET=...
 ```
 
-```ts
-import { greet } from "temporal-adventure-bot-workflow";
+`SLACK_CHANNEL` must be the channel _ID_, not its name.
+Invite the bot to that channel with `/invite @Your Bot Name`: `chat:write.public` covers posting, but adding reactions, reading them, and pinning all require membership.
 
-greet("Hello, world! ✨");
+Then:
+
+```shell
+pnpm dev
 ```
+
+Point two Slack slash commands at the running server:
+
+| Command  | Route    | What it does                                              |
+| -------- | -------- | --------------------------------------------------------- |
+| `/begin` | `/start` | Posts the instructions and opens the first poll           |
+| `/force` | `/force` | Forces a choice: `random`, or `1` through the last option |
+
+Both routes verify Slack's request signature before doing anything.
+
+### How It Works
+
+`runGame` is one long-lived durable workflow that loops over game entries.
+For each entry it posts a poll, then races two outcomes:
+
+- `sleep()` for `settings.interval`, after which it counts reactions and looks for consensus
+- a hook keyed on the channel, which `/force` resumes to override the vote
+
+Every Slack call lives in a `"use step"` function, so the workflow itself stays deterministic and replayable.
 
 ## Development
 

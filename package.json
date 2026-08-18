@@ -1,6 +1,7 @@
 {
 	"name": "temporal-adventure-bot-workflow",
 	"version": "0.0.0",
+	"private": true,
 	"description": "A Vercel Workflow port of the choose-your-own-adventure Slack bot.",
 	"repository": {
 		"type": "git",
@@ -10,25 +11,27 @@
 	"author": {
 		"name": "JoshuaKGoldberg"
 	},
-	"sideEffects": false,
 	"type": "module",
-	"exports": {
-		".": "./lib/index.js"
-	},
-	"files": [
-		"lib/"
-	],
 	"scripts": {
-		"build": "tsdown",
+		"build": "nitro build",
+		"dev": "nitro dev",
 		"format": "prettier .",
 		"lint": "eslint . --max-warnings 0",
 		"lint:knip": "knip",
 		"lint:spelling": "cspell \"**\" \".github/**/*\"",
 		"prepare": "husky",
-		"test": "vitest"
+		"test": "vitest",
+		"tsc": "tsc"
 	},
 	"lint-staged": {
 		"*": "prettier --ignore-unknown --write"
+	},
+	"dependencies": {
+		"@slack/web-api": "^8.0.0",
+		"hono": "^4.13.3",
+		"nitro": "3.0.260610-beta",
+		"rollup": "^4.62.4",
+		"workflow": "^4.8.3"
 	},
 	"devDependencies": {
 		"@eslint-community/eslint-plugin-eslint-comments": "4.7.2",
@@ -57,7 +60,6 @@
 		"prettier-plugin-sentences-per-line": "0.2.4",
 		"prettier-plugin-sh": "0.19.0",
 		"release-it": "21.0.2",
-		"tsdown": "0.22.14",
 		"typescript": "5.9.3",
 		"typescript-eslint": "8.67.0",
 		"vitest": "4.1.10"

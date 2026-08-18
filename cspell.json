@@ -3,11 +3,21 @@
 	"ignorePaths": [
 		".all-contributorsrc",
 		".github",
+		".nitro",
+		".output",
 		"CHANGELOG.md",
 		"coverage",
 		"lib",
 		"node_modules",
 		"pnpm-lock.yaml"
 	],
-	"words": ["eeef"]
+	"words": [
+		"Bessy",
+		"Blunderbore",
+		"Spriggins",
+		"eeef",
+		"nitro",
+		"replayable",
+		"xoxb"
+	]
 }

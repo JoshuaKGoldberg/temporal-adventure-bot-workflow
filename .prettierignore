@@ -1,5 +1,7 @@
 /.all-contributorsrc
 /.husky
+/.nitro
+/.output
 /coverage
 /lib
 /pnpm-lock.yaml
