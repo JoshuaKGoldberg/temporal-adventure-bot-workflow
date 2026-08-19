@@ -1,0 +1,45 @@
+{
+	"display_information": {
+		"description": "Choose-your-own-adventure game bot",
+		"name": "Adventure Bot"
+	},
+	"features": {
+		"bot_user": {
+			"always_online": false,
+			"display_name": "Adventure Bot"
+		},
+		"slash_commands": [
+			{
+				"command": "/begin",
+				"description": "Start a new choose-your-own-adventure game in this channel.",
+				"should_escape": false,
+				"url": "https://temporal-adventure-bot-workflow.vercel.app/start"
+			},
+			{
+				"command": "/force",
+				"description": "Force an adventure choice: 'random' or a number for an option.",
+				"should_escape": false,
+				"url": "https://temporal-adventure-bot-workflow.vercel.app/force",
+				"usage_hint": "1"
+			}
+		]
+	},
+	"oauth_config": {
+		"scopes": {
+			"bot": [
+				"channels:read",
+				"chat:write",
+				"chat:write.public",
+				"commands",
+				"pins:write",
+				"reactions:read",
+				"reactions:write"
+			]
+		}
+	},
+	"settings": {
+		"org_deploy_enabled": false,
+		"socket_mode_enabled": false,
+		"token_rotation_enabled": false
+	}
+}

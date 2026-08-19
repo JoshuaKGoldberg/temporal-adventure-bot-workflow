@@ -23,7 +23,50 @@
 A [Vercel Workflow](https://useworkflow.dev) port of [temporal-adventure-bot](https://github.com/JoshuaKGoldberg/temporal-adventure-bot).
 The game logic is the same; durable execution comes from the Workflow DevKit instead of a Temporal server, so there's no worker process to keep alive.
 
-Create a `.env` with a [Slack app](https://api.slack.com/apps)'s credentials:
+### Installing the Slack App
+
+1. Create the app from [`slack-manifest.json`](./slack-manifest.json): on [Slack API > Your Apps](https://api.slack.com/apps), choose **Create New App**, then **From a manifest**, then the workspace to install into, then paste the file's contents.
+
+   The manifest points both slash commands at this project's deployed URLs.
+   Change them if you deploy somewhere else, or to a tunnel if you're running locally.
+
+2. Install the app to the workspace from its **Install App** settings.
+
+   Workspaces often restrict who may install apps.
+   If yours does, that button sends a request to a workspace admin instead of installing, and you'll need their approval before continuing.
+
+3. Collect two credentials from the app's settings:
+
+   | Value                  | Where               |
+   | ---------------------- | ------------------- |
+   | `SLACK_BOT_TOKEN`      | OAuth & Permissions |
+   | `SLACK_SIGNING_SECRET` | Basic Information   |
+
+4. Create the channel the game will play in, then invite the bot to it with `/invite @Adventure Bot`.
+
+   This step is easy to skip and confusing to debug: `chat:write.public` lets the bot post without joining, so instructions and polls appear, but adding reactions, reading them, and pinning all require membership.
+
+5. Copy that channel's _ID_ (such as `C0123456789`) for `SLACK_CHANNEL`.
+   The channel name won't work.
+
+The manifest asks for seven bot scopes, and no more:
+
+| Scope               | Why                                  |
+| ------------------- | ------------------------------------ |
+| `channels:read`     | Resolve the channel it posts in      |
+| `chat:write`        | Post prompts, reminders, and endings |
+| `chat:write.public` | Post without being a member          |
+| `commands`          | Receive `/begin` and `/force`        |
+| `pins:write`        | Pin the instructions once            |
+| `reactions:read`    | Count votes on its own polls         |
+| `reactions:write`   | Seed one reaction per option         |
+
+Notably absent is `channels:history`, so the bot cannot read messages.
+It only ever sees reaction names and counts on the polls it posted itself.
+
+### Running Locally
+
+Put the credentials in a `.env`:
 
 ```shell
 SLACK_BOT_TOKEN=xoxb-...
@@ -31,23 +74,44 @@ SLACK_CHANNEL=C0123456789
 SLACK_SIGNING_SECRET=...
 ```
 
-`SLACK_CHANNEL` must be the channel _ID_, not its name.
-Invite the bot to that channel with `/invite @Your Bot Name`: `chat:write.public` covers posting, but adding reactions, reading them, and pinning all require membership.
-
-Then:
-
 ```shell
 pnpm dev
 ```
 
-Point two Slack slash commands at the running server:
+Workflows use the [Local World](https://useworkflow.dev/docs/deploying/world/local-world) in development, storing runs in `.workflow-data/`.
+Inspect them with `npx workflow inspect runs`.
+
+Slack needs a public URL to deliver slash commands, so point the manifest's command URLs at a tunnel to `localhost:3000` while developing.
+
+### Deploying to Vercel
+
+Deployments use the [Vercel World](https://useworkflow.dev/docs/deploying/world/vercel-world) with no configuration: storage, queuing, and durable timers come from the platform.
+
+```shell
+vercel link
+vercel env add SLACK_BOT_TOKEN production
+vercel env add SLACK_CHANNEL production
+vercel env add SLACK_SIGNING_SECRET production
+vercel deploy --prod
+```
+
+Three things worth knowing:
+
+- Environment variable changes only apply to _new_ deployments, so redeploy after changing one.
+- Deployment Protection blocks Slack's requests before they reach the app.
+  Turn it off for production, or add a bypass secret and append `?x-vercel-protection-bypass=<secret>` to both command URLs.
+- One project serves one workspace, since `SLACK_CHANNEL` holds a single channel.
+  Use a second project to run a test workspace alongside a real one.
+
+Finally, point the slash commands at the deployment:
 
 | Command  | Route    | What it does                                              |
 | -------- | -------- | --------------------------------------------------------- |
 | `/begin` | `/start` | Posts the instructions and opens the first poll           |
 | `/force` | `/force` | Forces a choice: `random`, or `1` through the last option |
 
-Both routes verify Slack's request signature before doing anything.
+Both routes verify Slack's request signature and reject anything unsigned.
+Only one game runs per channel at a time; a second `/begin` is turned away.
 
 ### How It Works
 
