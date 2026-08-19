@@ -17,7 +17,7 @@ jobs:
 
             The release is available on:
 
-            * [GitHub releases](https://github.com/JoshuaKGoldberg/temporal-adventure-bot-workflow/releases/tag/{release_tag})
+            * [GitHub releases](https://github.com/getsentry/temporal-adventure-bot-workflow/releases/tag/{release_tag})
             * [npm package (@latest dist-tag)](https://www.npmjs.com/package/temporal-adventure-bot-workflow/v/${{ env.npm_version }})
 
             Cheers! 📦🚀

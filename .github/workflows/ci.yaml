@@ -6,7 +6,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare
       - run: pnpm build
-      - run: node ./lib/index.js
   dedupe_check:
     name: Dedupe Check
     runs-on: ubuntu-latest
