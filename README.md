@@ -14,6 +14,10 @@
 	<img alt="💪 TypeScript: Strict" src="https://img.shields.io/badge/%F0%9F%92%AA_typescript-strict-21bb42.svg" />
 </p>
 
+<p align="center">
+	<img alt="Adventure Bot in Slack: pinned instructions for the game, then a prompt describing a farm in 18th century England with three numbered options and one emoji reaction vote on each" src="./docs/screenshot.webp" />
+</p>
+
 ## Usage
 
 A [Vercel Workflow](https://useworkflow.dev) port of [temporal-adventure-bot](https://github.com/JoshuaKGoldberg/temporal-adventure-bot).
