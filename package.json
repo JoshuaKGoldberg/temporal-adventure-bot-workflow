@@ -5,7 +5,7 @@
 	"description": "A Vercel Workflow port of the choose-your-own-adventure Slack bot.",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/JoshuaKGoldberg/temporal-adventure-bot-workflow.git"
+		"url": "git+https://github.com/getsentry/temporal-adventure-bot-workflow.git"
 	},
 	"license": "MIT",
 	"author": {
@@ -67,5 +67,11 @@
 	"packageManager": "pnpm@10.4.0",
 	"engines": {
 		"node": ">=20.19.0"
+	},
+	"pnpm": {
+		"overrides": {
+			"nanoid@^5": "^5.1.16",
+			"undici@^7": "^7.29.0"
+		}
 	}
 }
