@@ -13,13 +13,13 @@
 				"command": "/begin",
 				"description": "Start a new choose-your-own-adventure game in this channel.",
 				"should_escape": false,
-				"url": "https://temporal-adventure-bot-workflow.vercel.app/start"
+				"url": "https://temporal-adventure-bot-workflow.sentry.dev/start"
 			},
 			{
 				"command": "/force",
 				"description": "Force an adventure choice: 'random' or a number for an option.",
 				"should_escape": false,
-				"url": "https://temporal-adventure-bot-workflow.vercel.app/force",
+				"url": "https://temporal-adventure-bot-workflow.sentry.dev/force",
 				"usage_hint": "1"
 			}
 		]

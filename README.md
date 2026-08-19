@@ -94,8 +94,10 @@ Keep tunnels short-lived and don't share them.
 
 Deployments use the [Vercel World](https://useworkflow.dev/docs/deploying/world/vercel-world) with no configuration: storage, queuing, and durable timers come from the platform.
 
+Production is the [`sentry/temporal-adventure-bot-workflow`](https://vercel.com/sentry/temporal-adventure-bot-workflow) project, served at <https://temporal-adventure-bot-workflow.sentry.dev>, which is what the manifest's command URLs point at.
+
 ```shell
-vercel link
+vercel link --scope sentry
 vercel env add SLACK_BOT_TOKEN production
 vercel env add SLACK_CHANNEL production
 vercel env add SLACK_FORCE_USER_IDS production
