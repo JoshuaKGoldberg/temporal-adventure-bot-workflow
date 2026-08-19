@@ -111,7 +111,11 @@ async function resolveChoice(
 
 			// A hook only lives for one wait. Reusing one leaves the losing side of
 			// the race attached to it, which silently swallows a later /force.
+			// The option count rides along so /force can range-check before
+			// resuming, instead of the workflow rejecting a choice the route has
+			// already confirmed.
 			const forceHook = createHook<ForceInput>({
+				metadata: { optionCount: options.length },
 				token: forceHookToken(channel),
 			});
 

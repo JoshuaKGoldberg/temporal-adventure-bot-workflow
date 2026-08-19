@@ -5,6 +5,7 @@ import {
 	parseCommandText,
 	printForced,
 	printRejected,
+	readOptionCount,
 } from "./force.js";
 
 describe(parseCommandText, () => {
@@ -79,6 +80,32 @@ describe(printRejected, () => {
 		expect(actual).toContain("*99*");
 		expect(actual).toContain("3 options");
 		expect(actual).toContain("<@U0123456789>");
+	});
+});
+
+describe(readOptionCount, () => {
+	it("returns the count when given metadata containing one", () => {
+		const actual = readOptionCount({ optionCount: 3 });
+
+		expect(actual).toBe(3);
+	});
+
+	it("returns undefined when given metadata without a count", () => {
+		const actual = readOptionCount({ other: true });
+
+		expect(actual).toBeUndefined();
+	});
+
+	it("returns undefined when given a non-numeric count", () => {
+		const actual = readOptionCount({ optionCount: "3" });
+
+		expect(actual).toBeUndefined();
+	});
+
+	it("returns undefined when given no metadata", () => {
+		const actual = readOptionCount(undefined);
+
+		expect(actual).toBeUndefined();
 	});
 });
 

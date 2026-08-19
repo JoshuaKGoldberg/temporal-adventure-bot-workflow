@@ -23,6 +23,18 @@ export const parseCommandText = (text: string): ForceChoice | undefined => {
 	return /^[1-9]\d*$/.test(trimmed) ? Number(trimmed) : undefined;
 };
 
+/**
+ * Hook metadata arrives as unknown, so an unexpected shape falls back to
+ * undefined and leaves the range check to the workflow.
+ */
+export const readOptionCount = (metadata: unknown) =>
+	typeof metadata === "object" &&
+	metadata !== null &&
+	"optionCount" in metadata &&
+	typeof metadata.optionCount === "number"
+		? metadata.optionCount
+		: undefined;
+
 export const printForced = ({ choice, userId }: ForceInput) => {
 	const printed =
 		choice === "random" ? "randomly" : `:${indexToEmojiName[choice - 1]}:`;
