@@ -5,6 +5,7 @@ import { emojiNameToIndex, indexToEmojiName } from "./utils/entries.js";
 
 export interface CreatePollOptions {
 	choices: string[];
+	notify?: boolean;
 	prompt: string;
 }
 
@@ -54,7 +55,7 @@ export async function createPoll(options: CreatePollOptions) {
 	const slack = createClient();
 
 	const messageId = await postToChannel(slack, {
-		notify: true,
+		notify: options.notify,
 		text: options.prompt,
 	});
 

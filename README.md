@@ -8,9 +8,9 @@
 	<a href="#contributors" target="_blank"><img alt="👪 All Contributors: 1" src="https://img.shields.io/badge/%F0%9F%91%AA_all_contributors-1-21bb42.svg" /></a>
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 	<!-- prettier-ignore-end -->
-	<a href="https://github.com/JoshuaKGoldberg/temporal-adventure-bot-workflow/blob/main/.github/CODE_OF_CONDUCT.md" target="_blank"><img alt="🤝 Code of Conduct: Kept" src="https://img.shields.io/badge/%F0%9F%A4%9D_code_of_conduct-kept-21bb42" /></a>
-	<a href="https://codecov.io/gh/JoshuaKGoldberg/temporal-adventure-bot-workflow" target="_blank"><img alt="🧪 Coverage" src="https://img.shields.io/codecov/c/github/JoshuaKGoldberg/temporal-adventure-bot-workflow?label=%F0%9F%A7%AA%20coverage" /></a>
-	<a href="https://github.com/JoshuaKGoldberg/temporal-adventure-bot-workflow/blob/main/LICENSE.md" target="_blank"><img alt="📝 License: MIT" src="https://img.shields.io/badge/%F0%9F%93%9D_license-MIT-21bb42.svg" /></a>
+	<a href="https://github.com/getsentry/temporal-adventure-bot-workflow/blob/main/.github/CODE_OF_CONDUCT.md" target="_blank"><img alt="🤝 Code of Conduct: Kept" src="https://img.shields.io/badge/%F0%9F%A4%9D_code_of_conduct-kept-21bb42" /></a>
+	<a href="https://codecov.io/gh/getsentry/temporal-adventure-bot-workflow" target="_blank"><img alt="🧪 Coverage" src="https://img.shields.io/codecov/c/github/getsentry/temporal-adventure-bot-workflow?label=%F0%9F%A7%AA%20coverage" /></a>
+	<a href="https://github.com/getsentry/temporal-adventure-bot-workflow/blob/main/LICENSE.md" target="_blank"><img alt="📝 License: MIT" src="https://img.shields.io/badge/%F0%9F%93%9D_license-MIT-21bb42.svg" /></a>
 	<img alt="💪 TypeScript: Strict" src="https://img.shields.io/badge/%F0%9F%92%AA_typescript-strict-21bb42.svg" />
 </p>
 
@@ -44,22 +44,26 @@ The game logic is the same; durable execution comes from the Workflow DevKit ins
 
 4. Create the channel the game will play in, then invite the bot to it with `/invite @Adventure Bot`.
 
-   This step is easy to skip and confusing to debug: `chat:write.public` lets the bot post without joining, so instructions and polls appear, but adding reactions, reading them, and pinning all require membership.
+   Don't skip this: posting, reacting, reading reactions, and pinning all require membership, and skipping it is confusing to debug.
 
 5. Copy that channel's _ID_ (such as `C0123456789`) for `SLACK_CHANNEL`.
    The channel name won't work.
 
-The manifest asks for seven bot scopes, and no more:
+6. Collect the Slack user IDs allowed to run `/force`, comma separated, for `SLACK_FORCE_USER_IDS`.
 
-| Scope               | Why                                  |
-| ------------------- | ------------------------------------ |
-| `channels:read`     | Resolve the channel it posts in      |
-| `chat:write`        | Post prompts, reminders, and endings |
-| `chat:write.public` | Post without being a member          |
-| `commands`          | Receive `/begin` and `/force`        |
-| `pins:write`        | Pin the instructions once            |
-| `reactions:read`    | Count votes on its own polls         |
-| `reactions:write`   | Seed one reaction per option         |
+   `/force` ends a poll early and picks its outcome, so it's restricted to this allowlist.
+   Slash commands are otherwise available to every member of a workspace.
+   If the variable is unset, `/force` is refused for everyone rather than allowed for everyone.
+
+The manifest asks for five bot scopes, and no more:
+
+| Scope             | Why                                  |
+| ----------------- | ------------------------------------ |
+| `chat:write`      | Post prompts, reminders, and endings |
+| `commands`        | Receive `/begin` and `/force`        |
+| `pins:write`      | Pin the instructions once            |
+| `reactions:read`  | Count votes on its own polls         |
+| `reactions:write` | Seed one reaction per option         |
 
 Notably absent is `channels:history`, so the bot cannot read messages.
 It only ever sees reaction names and counts on the polls it posted itself.
@@ -71,6 +75,7 @@ Put the credentials in a `.env`:
 ```shell
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_CHANNEL=C0123456789
+SLACK_FORCE_USER_IDS=U0123456789,U9876543210
 SLACK_SIGNING_SECRET=...
 ```
 
@@ -82,6 +87,8 @@ Workflows use the [Local World](https://useworkflow.dev/docs/deploying/world/loc
 Inspect them with `npx workflow inspect runs`.
 
 Slack needs a public URL to deliver slash commands, so point the manifest's command URLs at a tunnel to `localhost:3000` while developing.
+Treat that tunnel URL as a credential: outside the Vercel preset the Workflow DevKit also serves `/.well-known/workflow/v1/step` and `/flow`, and your `.env` holds a real bot token.
+Keep tunnels short-lived and don't share them.
 
 ### Deploying to Vercel
 
@@ -91,17 +98,21 @@ Deployments use the [Vercel World](https://useworkflow.dev/docs/deploying/world/
 vercel link
 vercel env add SLACK_BOT_TOKEN production
 vercel env add SLACK_CHANNEL production
+vercel env add SLACK_FORCE_USER_IDS production
 vercel env add SLACK_SIGNING_SECRET production
 vercel deploy --prod
 ```
 
-Three things worth knowing:
+Four things worth knowing:
 
 - Environment variable changes only apply to _new_ deployments, so redeploy after changing one.
 - Deployment Protection blocks Slack's requests before they reach the app.
   Turn it off for production, or add a bypass secret and append `?x-vercel-protection-bypass=<secret>` to both command URLs.
+  The bypass secret is the better option: with protection off, the signing secret is the only control on two public endpoints.
 - One project serves one workspace, since `SLACK_CHANNEL` holds a single channel.
   Use a second project to run a test workspace alongside a real one.
+- The app doesn't use Slack token rotation, so `SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET` don't expire on their own.
+  Rotate both every 90 days, and immediately if either may have leaked: regenerate them in the app's settings, `vercel env rm` and re-add each, then redeploy.
 
 Finally, point the slash commands at the deployment:
 
@@ -110,7 +121,8 @@ Finally, point the slash commands at the deployment:
 | `/begin` | `/start` | Posts the instructions and opens the first poll           |
 | `/force` | `/force` | Forces a choice: `random`, or `1` through the last option |
 
-Both routes verify Slack's request signature and reject anything unsigned.
+Both routes verify Slack's request signature, reject anything unsigned, and refuse commands sent from any channel other than `SLACK_CHANNEL`.
+`/force` additionally requires the sending user to be in `SLACK_FORCE_USER_IDS`, and both routes log the invoking user and channel.
 Only one game runs per channel at a time; a second `/begin` is turned away.
 
 ### How It Works
@@ -118,7 +130,7 @@ Only one game runs per channel at a time; a second `/begin` is turned away.
 `runGame` is one long-lived durable workflow that loops over game entries.
 For each entry it posts a poll, then races two outcomes:
 
-- `sleep()` for `settings.interval`, after which it counts reactions and looks for consensus
+- `sleep()` until the round's deadline, `settings.intervalMs` after it opened, after which it counts reactions and looks for consensus
 - a hook keyed on the channel, which `/force` resumes to override the vote
 
 Every Slack call lives in a `"use step"` function, so the workflow itself stays deterministic and replayable.
@@ -137,7 +149,7 @@ Thanks! ✨
 <table>
   <tbody>
     <tr>
-      <td align="center"><a href="http://www.joshuakgoldberg.com"><img src="https://avatars.githubusercontent.com/u/3335181?v=4?s=100" width="100px;" alt="Josh Goldberg ✨"/><br /><sub><b>Josh Goldberg ✨</b></sub></a><br /><a href="https://github.com/JoshuaKGoldberg/temporal-adventure-bot-workflow/commits?author=JoshuaKGoldberg" title="Code">💻</a> <a href="#content-JoshuaKGoldberg" title="Content">🖋</a> <a href="https://github.com/JoshuaKGoldberg/temporal-adventure-bot-workflow/commits?author=JoshuaKGoldberg" title="Documentation">📖</a> <a href="#ideas-JoshuaKGoldberg" title="Ideas, Planning, & Feedback">🤔</a> <a href="#infra-JoshuaKGoldberg" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="#maintenance-JoshuaKGoldberg" title="Maintenance">🚧</a> <a href="#projectManagement-JoshuaKGoldberg" title="Project Management">📆</a> <a href="#tool-JoshuaKGoldberg" title="Tools">🔧</a></td>
+      <td align="center"><a href="http://www.joshuakgoldberg.com"><img src="https://avatars.githubusercontent.com/u/3335181?v=4?s=100" width="100px;" alt="Josh Goldberg ✨"/><br /><sub><b>Josh Goldberg ✨</b></sub></a><br /><a href="https://github.com/getsentry/temporal-adventure-bot-workflow/commits?author=JoshuaKGoldberg" title="Code">💻</a> <a href="#content-JoshuaKGoldberg" title="Content">🖋</a> <a href="https://github.com/getsentry/temporal-adventure-bot-workflow/commits?author=JoshuaKGoldberg" title="Documentation">📖</a> <a href="#ideas-JoshuaKGoldberg" title="Ideas, Planning, & Feedback">🤔</a> <a href="#infra-JoshuaKGoldberg" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="#maintenance-JoshuaKGoldberg" title="Maintenance">🚧</a> <a href="#projectManagement-JoshuaKGoldberg" title="Project Management">📆</a> <a href="#tool-JoshuaKGoldberg" title="Tools">🔧</a></td>
     </tr>
   </tbody>
 </table>

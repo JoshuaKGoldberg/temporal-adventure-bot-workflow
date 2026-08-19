@@ -1,4 +1,9 @@
-export type ForceInput = "random" | number;
+export type ForceChoice = "random" | number;
+
+export interface ForceInput {
+	choice: ForceChoice;
+	userId: string;
+}
 
 export type Game = Record<string, GameEntry>;
 
@@ -14,7 +19,7 @@ export interface GameOption {
 
 export interface NextChoice {
 	choice: string;
-	forced?: ForceInput;
+	forced?: ForceChoice;
 }
 
 export interface Reaction {

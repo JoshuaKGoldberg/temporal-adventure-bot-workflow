@@ -1,45 +1,14 @@
 import { Context, Hono } from "hono";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { getHookByToken, resumeHook, start } from "workflow/api";
 
 import { forceHookToken, gameHookToken, parseCommandText } from "./force.js";
+import {
+	allowedForcers,
+	parseCommand,
+	SlackCommand,
+	verify,
+} from "./requests.js";
 import { runGame } from "./workflows.js";
-
-const isFromSlack = (
-	body: string,
-	signature: null | string,
-	timestamp: null | string,
-) => {
-	const signingSecret = process.env.SLACK_SIGNING_SECRET;
-
-	if (!signingSecret || !timestamp || !signature) {
-		return false;
-	}
-
-	// Reject replays of requests captured more than five minutes ago
-	if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 60 * 5) {
-		return false;
-	}
-
-	const expected = `v0=${createHmac("sha256", signingSecret)
-		.update(`v0:${timestamp}:${body}`)
-		.digest("hex")}`;
-
-	const expectedBuffer = Buffer.from(expected);
-	const signatureBuffer = Buffer.from(signature);
-
-	return (
-		expectedBuffer.length === signatureBuffer.length &&
-		timingSafeEqual(expectedBuffer, signatureBuffer)
-	);
-};
-
-const verify = (context: Context, body: string) =>
-	isFromSlack(
-		body,
-		context.req.header("x-slack-signature") ?? null,
-		context.req.header("x-slack-request-timestamp") ?? null,
-	);
 
 const hasRunningGame = async (channel: string) => {
 	try {
@@ -50,59 +19,105 @@ const hasRunningGame = async (channel: string) => {
 	}
 };
 
+const logCommand = (
+	at: "force" | "force-denied" | "start",
+	{ channelId, text, userId }: SlackCommand,
+) => {
+	console.log(JSON.stringify({ at, channel: channelId, text, user: userId }));
+};
+
+const readCommand = (context: Context, body: string) => {
+	if (!verify(context, body)) {
+		return { failure: context.text("Invalid request signature.", 401) };
+	}
+
+	const channel = process.env.SLACK_CHANNEL;
+
+	if (!channel) {
+		return { failure: context.text("Missing SLACK_CHANNEL.", 500) };
+	}
+
+	const command = parseCommand(body);
+
+	// The game only ever runs in SLACK_CHANNEL, so a command sent from anywhere
+	// else, including a DM, must not be able to drive it.
+	if (command.channelId !== channel) {
+		return {
+			failure: context.text(
+				"Adventure bot only plays in its own channel. 🙅",
+				403,
+			),
+		};
+	}
+
+	return { channel, command };
+};
+
 const app = new Hono();
 
 app.get("/", (context) => context.text("Adventure bot is awake. 👋"));
 
 app.post("/start", async (context) => {
 	const body = await context.req.text();
+	const request = readCommand(context, body);
 
-	if (!verify(context, body)) {
-		return context.text("Invalid request signature.", 401);
+	if ("failure" in request) {
+		return request.failure;
 	}
 
-	const channel = process.env.SLACK_CHANNEL;
+	logCommand("start", request.command);
 
-	if (!channel) {
-		return context.text("Missing SLACK_CHANNEL.", 500);
-	}
-
-	if (await hasRunningGame(channel)) {
+	if (await hasRunningGame(request.channel)) {
 		return context.text("A game is already running in this channel. 🎲");
 	}
 
-	const run = await start(runGame, ["begin", channel]);
+	const run = await start(runGame, ["begin", request.channel]);
 
 	return context.text(`🎬 Off we go! Run ${run.runId}.`);
 });
 
 app.post("/force", async (context) => {
 	const body = await context.req.text();
+	const request = readCommand(context, body);
 
-	if (!verify(context, body)) {
-		return context.text("Invalid request signature.", 401);
+	if ("failure" in request) {
+		return request.failure;
 	}
 
-	const channel = process.env.SLACK_CHANNEL;
+	const forcers = allowedForcers();
 
-	if (!channel) {
-		return context.text("Missing SLACK_CHANNEL.", 500);
+	// Fail closed: an empty allowlist is a misconfiguration, not permission for
+	// the whole workspace to override votes.
+	if (forcers.size === 0) {
+		return context.text("Missing SLACK_FORCE_USER_IDS.", 500);
 	}
 
-	const text = new URLSearchParams(body).get("text") ?? "";
-	const forced = parseCommandText(text);
+	if (!forcers.has(request.command.userId)) {
+		logCommand("force-denied", request.command);
 
-	if (forced === undefined) {
-		return context.text(`I'm sorry, I don't understand '${text}'... 😖`);
+		return context.text("Only an adventure admin can force a choice. 🙅", 403);
+	}
+
+	logCommand("force", request.command);
+
+	const choice = parseCommandText(request.command.text);
+
+	if (choice === undefined) {
+		return context.text(
+			`I'm sorry, I don't understand '${request.command.text}'... 😖`,
+		);
 	}
 
 	try {
-		await resumeHook(forceHookToken(channel), forced);
+		await resumeHook(forceHookToken(request.channel), {
+			choice,
+			userId: request.command.userId,
+		});
 	} catch {
 		return context.text("There's no poll waiting on a choice right now. 🤔");
 	}
 
-	return context.text(`👍 You got it! Going with *${String(forced)}*.`);
+	return context.text(`👍 You got it! Going with *${String(choice)}*.`);
 });
 
 export default app;

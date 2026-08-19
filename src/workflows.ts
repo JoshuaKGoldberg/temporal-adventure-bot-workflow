@@ -1,10 +1,15 @@
 import { createHook, sleep } from "workflow";
 
-import { forceHookToken, gameHookToken, printForced } from "./force.js";
+import {
+	forceHookToken,
+	gameHookToken,
+	printForced,
+	printRejected,
+} from "./force.js";
 import { game } from "./game.js";
 import { settings } from "./settings.js";
 import { createPoll, getReactions, pinMessage, postMessage } from "./slack.js";
-import { ForceInput, GameOption } from "./types.js";
+import { ForceChoice, ForceInput, GameOption } from "./types.js";
 import { formatEntryData } from "./utils/entries.js";
 import { collectConsensus } from "./utils/voting.js";
 
@@ -23,14 +28,21 @@ The game is simple:
 `.trim();
 
 // eslint-disable-next-line @typescript-eslint/require-await -- steps must be async
+async function currentTimeMs() {
+	"use step";
+
+	return Date.now();
+}
+
+// eslint-disable-next-line @typescript-eslint/require-await -- steps must be async
 async function pickRandomIndex(count: number) {
 	"use step";
 
 	return Math.floor(Math.random() * count);
 }
 
-const withinOptions = (forced: ForceInput, options: GameOption[]) =>
-	forced === "random" || (forced >= 1 && forced <= options.length);
+const withinOptions = (choice: ForceChoice, options: GameOption[]) =>
+	choice === "random" || (choice >= 1 && choice <= options.length);
 
 export async function runGame(startingEntry: string, channel: string) {
 	"use workflow";
@@ -49,6 +61,7 @@ export async function runGame(startingEntry: string, channel: string) {
 	await pinMessage(instructions);
 
 	let entry = startingEntry;
+	let firstPoll = true;
 
 	for (;;) {
 		const { options } = game[entry];
@@ -67,8 +80,11 @@ ${game[entry].description.join("\n")}
 
 		const poll = await createPoll({
 			choices: options.map((option) => option.description),
+			notify: firstPoll,
 			prompt: formatEntryData(game[entry]),
 		});
+
+		firstPoll = false;
 
 		const next = await resolveChoice(poll, options, channel);
 
@@ -82,34 +98,51 @@ async function resolveChoice(
 	channel: string,
 ) {
 	for (;;) {
-		// A hook only lives for one round. Reusing one leaves the losing side of
-		// the race attached to it, which silently swallows a later /force.
-		const forceHook = createHook<ForceInput>({
-			token: forceHookToken(channel),
-		});
+		// One deadline per voting round. Every wait below runs only until this
+		// instant, so a rejected /force can't hand the round a fresh interval.
+		const deadline = (await currentTimeMs()) + settings.intervalMs;
 
-		const outcome = await Promise.race([
-			forceHook.then((forced) => ({ forced })),
-			sleep(settings.interval).then(() => ({ elapsed: true }) as const),
-		]);
+		for (;;) {
+			const remaining = deadline - (await currentTimeMs());
 
-		forceHook.dispose();
+			if (remaining <= 0) {
+				break;
+			}
 
-		// Disposal only commits when the workflow suspends, so suspend before the
-		// next round registers the same token and conflicts with this one
-		await sleep("1s");
+			// A hook only lives for one wait. Reusing one leaves the losing side of
+			// the race attached to it, which silently swallows a later /force.
+			const forceHook = createHook<ForceInput>({
+				token: forceHookToken(channel),
+			});
 
-		if ("forced" in outcome) {
-			if (!withinOptions(outcome.forced, options)) {
+			const outcome = await Promise.race([
+				forceHook.then((forced) => ({ forced })),
+				sleep(remaining).then(() => ({ elapsed: true }) as const),
+			]);
+
+			forceHook.dispose();
+
+			// Disposal only commits when the workflow suspends, so suspend before the
+			// next wait registers the same token and conflicts with this one
+			await sleep("1s");
+
+			if (!("forced" in outcome)) {
+				break;
+			}
+
+			if (!withinOptions(outcome.forced.choice, options)) {
+				await postMessage({
+					text: printRejected(outcome.forced, options.length),
+				});
 				continue;
 			}
 
 			await postMessage({ text: printForced(outcome.forced) });
 
 			const index =
-				outcome.forced === "random"
+				outcome.forced.choice === "random"
 					? await pickRandomIndex(options.length)
-					: outcome.forced - 1;
+					: outcome.forced.choice - 1;
 
 			return options[index].next;
 		}
