@@ -15,6 +15,19 @@ export interface PostMessageOptions {
 	text: string;
 }
 
+/**
+ * Slack returns reactions created within the same second in name order rather
+ * than the order they were added, so seeding a poll back to back shows voters
+ * :one: :three: :two:. Spacing the calls past a second boundary keeps the
+ * option order voters see the same as the option order in the prompt.
+ */
+const reactionSpacingMs = 1100;
+
+const pause = (ms: number) =>
+	new Promise<void>((resolve) => {
+		setTimeout(resolve, ms);
+	});
+
 const requireEnvironmentVariable = (name: string) => {
 	const value = process.env[name];
 
@@ -61,6 +74,10 @@ export async function createPoll(options: CreatePollOptions) {
 	});
 
 	for (let i = 0; i < options.choices.length; i += 1) {
+		if (i > 0) {
+			await pause(reactionSpacingMs);
+		}
+
 		await slack.client.reactions.add({
 			channel: slack.channel,
 			name: indexToEmojiName[i],
