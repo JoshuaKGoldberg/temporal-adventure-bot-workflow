@@ -106,7 +106,11 @@ export async function pinMessage(messageId: string) {
 
 	const { channel, client } = createClient();
 
-	await client.pins.add({ channel, timestamp: messageId });
+	try {
+		await client.pins.add({ channel, timestamp: messageId });
+	} catch (error) {
+		console.error("Could not pin the instructions.", error);
+	}
 }
 
 export async function postMessage(options: PostMessageOptions) {
@@ -119,13 +123,18 @@ export async function unpinStaleInstructions(prefix: string) {
 	"use step";
 
 	const { channel, client } = createClient();
-	const response = await client.pins.list({ channel });
 
-	for (const item of response.items ?? []) {
-		const pinned = readPinnedBotMessage(item);
+	try {
+		const response = await client.pins.list({ channel });
 
-		if (pinned?.text.startsWith(prefix)) {
-			await client.pins.remove({ channel, timestamp: pinned.ts });
+		for (const item of response.items ?? []) {
+			const pinned = readPinnedBotMessage(item);
+
+			if (pinned?.text.startsWith(prefix)) {
+				await client.pins.remove({ channel, timestamp: pinned.ts });
+			}
 		}
+	} catch (error) {
+		console.error("Could not unpin previous instructions.", error);
 	}
 }
