@@ -2,6 +2,7 @@ import { WebClient } from "@slack/web-api";
 
 import { Reaction } from "./types.js";
 import { emojiNameToIndex, indexToEmojiName } from "./utils/entries.js";
+import { readPinnedBotMessage } from "./utils/pins.js";
 
 export interface CreatePollOptions {
 	choices: string[];
@@ -112,4 +113,19 @@ export async function postMessage(options: PostMessageOptions) {
 	"use step";
 
 	return await postToChannel(createClient(), options);
+}
+
+export async function unpinStaleInstructions(prefix: string) {
+	"use step";
+
+	const { channel, client } = createClient();
+	const response = await client.pins.list({ channel });
+
+	for (const item of response.items ?? []) {
+		const pinned = readPinnedBotMessage(item);
+
+		if (pinned?.text.startsWith(prefix)) {
+			await client.pins.remove({ channel, timestamp: pinned.ts });
+		}
+	}
 }

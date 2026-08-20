@@ -58,18 +58,20 @@ The game logic is the same; durable execution comes from the Workflow DevKit ins
    Slash commands are otherwise available to every member of a workspace.
    If the variable is unset, both are refused for everyone rather than allowed for everyone.
 
-The manifest asks for five bot scopes, and no more:
+The manifest asks for six bot scopes, and no more:
 
-| Scope             | Why                                  |
-| ----------------- | ------------------------------------ |
-| `chat:write`      | Post prompts, reminders, and endings |
-| `commands`        | Receive `/begin` and `/force`        |
-| `pins:write`      | Pin the instructions once            |
-| `reactions:read`  | Count votes on its own polls         |
-| `reactions:write` | Seed one reaction per option         |
+| Scope             | Why                                             |
+| ----------------- | ----------------------------------------------- |
+| `chat:write`      | Post prompts, reminders, and endings            |
+| `commands`        | Receive `/begin`, `/end`, and `/force`          |
+| `pins:read`       | Find the previous game's pinned instructions    |
+| `pins:write`      | Pin the instructions, and unpin the last game's |
+| `reactions:read`  | Count votes on its own polls                    |
+| `reactions:write` | Seed one reaction per option                    |
 
-Notably absent is `channels:history`, so the bot cannot read messages.
-It only ever sees reaction names and counts on the polls it posted itself.
+Notably absent is `channels:history`, so the bot cannot read the channel's messages.
+`pins:read` is narrower but not nothing: it sees the messages that are pinned, which is how it finds its own instructions from a previous game.
+Beyond those, it only ever sees reaction names and counts on the polls it posted itself.
 
 ### Running Locally
 
