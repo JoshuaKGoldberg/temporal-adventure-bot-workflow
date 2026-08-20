@@ -9,13 +9,21 @@ import {
 } from "./force.js";
 import { game } from "./game.js";
 import { settings } from "./settings.js";
-import { createPoll, getReactions, pinMessage, postMessage } from "./slack.js";
+import {
+	createPoll,
+	getReactions,
+	pinMessage,
+	postMessage,
+	unpinStaleInstructions,
+} from "./slack.js";
 import { ForceChoice, GameOption, PollInput } from "./types.js";
 import { formatEntryData } from "./utils/entries.js";
 import { collectConsensus } from "./utils/voting.js";
 
+const announcementPrefix = ":wave: Hey everyone!";
+
 const announcement = `
-:wave: Hey everyone! We're going to be playing a little choose-your-own adventure game together! :raised_hands:
+${announcementPrefix} We're going to be playing a little choose-your-own adventure game together! :raised_hands:
 
 The game is simple:
 1. :speech_balloon: Every ${settings.intervalLabel}, I'll post a game prompt in this channel describing where you are.
@@ -56,6 +64,10 @@ export async function runGame(startingEntry: string, channel: string) {
 	if (conflict) {
 		return `already running as ${conflict.runId}`;
 	}
+
+	// Every game pins its own instructions, so without this each new game adds
+	// another pin on top of every previous game's.
+	await unpinStaleInstructions(announcementPrefix);
 
 	const instructions = await postMessage({ text: announcement });
 

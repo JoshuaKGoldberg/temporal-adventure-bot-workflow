@@ -35,6 +35,7 @@
 			"bot": [
 				"chat:write",
 				"commands",
+				"pins:read",
 				"pins:write",
 				"reactions:read",
 				"reactions:write"
