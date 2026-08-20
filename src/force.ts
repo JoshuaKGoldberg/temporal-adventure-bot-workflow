@@ -1,4 +1,4 @@
-import { ForceChoice, ForceInput } from "./types.js";
+import { EndInput, ForceChoice, ForceInput } from "./types.js";
 import { indexToEmojiName } from "./utils/entries.js";
 
 export const forceHookToken = (channel: string) => `force:${channel}`;
@@ -34,6 +34,9 @@ export const readOptionCount = (metadata: unknown) =>
 	typeof metadata.optionCount === "number"
 		? metadata.optionCount
 		: undefined;
+
+export const printEnded = ({ userId }: EndInput) =>
+	`:octagonal_sign: <@${userId}> called the game here. Thanks for playing everyone! :end:`;
 
 export const printForced = ({ choice, userId }: ForceInput) => {
 	const printed =

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	forceHookToken,
 	parseCommandText,
+	printEnded,
 	printForced,
 	printRejected,
 	readOptionCount,
@@ -55,6 +56,14 @@ describe(parseCommandText, () => {
 		const actual = parseCommandText("1e3");
 
 		expect(actual).toBeUndefined();
+	});
+});
+
+describe(printEnded, () => {
+	it("names the user who ended the game", () => {
+		const actual = printEnded({ end: true, userId: "U0123456789" });
+
+		expect(actual).toContain("<@U0123456789>");
 	});
 });
 
