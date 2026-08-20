@@ -109,10 +109,6 @@ export async function pinMessage(messageId: string) {
 	await client.pins.add({ channel, timestamp: messageId });
 }
 
-/**
- * Unpins the bot's own pinned messages starting with `prefix`, so a new game's
- * instructions don't stack on top of every previous game's.
- */
 export async function postMessage(options: PostMessageOptions) {
 	"use step";
 
