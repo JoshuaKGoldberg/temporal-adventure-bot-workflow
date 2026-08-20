@@ -135,8 +135,6 @@ export async function unpinStaleInstructions(prefix: string) {
 			}
 		}
 	} catch (error) {
-		// Tidying old pins is housekeeping, so this can't be what stops a game
-		// from starting. Without pins:read it always throws missing_scope.
 		console.error("Could not unpin previous instructions.", error);
 	}
 }
