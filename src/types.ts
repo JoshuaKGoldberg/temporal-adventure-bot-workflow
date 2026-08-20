@@ -10,6 +10,11 @@ export interface ForceInput {
 	userId: string;
 }
 
+export interface ForwardInput {
+	forward: true;
+	userId: string;
+}
+
 export type Game = Record<string, GameEntry>;
 
 export interface GameEntry {
@@ -27,7 +32,7 @@ export interface NextChoice {
 	forced?: ForceChoice;
 }
 
-export type PollInput = EndInput | ForceInput;
+export type PollInput = EndInput | ForceInput | ForwardInput;
 
 export interface Reaction {
 	count: number;
