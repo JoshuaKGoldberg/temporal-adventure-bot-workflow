@@ -51,19 +51,19 @@ The game logic is the same; durable execution comes from the Workflow DevKit ins
    Click the channel's name and the ID is at the bottom of the **About** tab, or take the last segment of the channel's copied link.
    Its _name_ won't work: Slack's API answers `channel_not_found` for one.
 
-6. Collect the Slack user IDs allowed to run `/force` and `/end`, comma separated, for `SLACK_FORCE_USER_IDS`.
+6. Collect the Slack user IDs allowed to run `/end`, `/force`, and `/forward`, comma separated, for `SLACK_FORCE_USER_IDS`.
 
    Each person's profile has theirs under **⋮ More** → **Copy member ID**, such as `U0123456789,U9876543210`.
-   The allowlist gates both `/force`, which ends a poll early and picks its outcome, and `/end`, which stops the game.
+   The allowlist gates the three commands that drive the game: `/force` ends a poll early and picks its outcome, `/forward` ends one early and takes whatever is winning, and `/end` stops the game.
    Slash commands are otherwise available to every member of a workspace.
-   If the variable is unset, both are refused for everyone rather than allowed for everyone.
+   If the variable is unset, all three are refused for everyone rather than allowed for everyone.
 
 The manifest asks for six bot scopes, and no more:
 
 | Scope             | Why                                             |
 | ----------------- | ----------------------------------------------- |
 | `chat:write`      | Post prompts, reminders, and endings            |
-| `commands`        | Receive `/begin`, `/end`, and `/force`          |
+| `commands`        | Receive the four slash commands                 |
 | `pins:read`       | Find the previous game's pinned instructions    |
 | `pins:write`      | Pin the instructions, and unpin the last game's |
 | `reactions:read`  | Count votes on its own polls                    |
@@ -127,14 +127,15 @@ Four things worth knowing:
 
 Finally, point the slash commands at the deployment:
 
-| Command  | Route    | What it does                                              |
-| -------- | -------- | --------------------------------------------------------- |
-| `/begin` | `/start` | Posts the instructions and opens the first poll           |
-| `/end`   | `/end`   | Stops the game where it stands                            |
-| `/force` | `/force` | Forces a choice: `random`, or `1` through the last option |
+| Command    | Route      | What it does                                              |
+| ---------- | ---------- | --------------------------------------------------------- |
+| `/begin`   | `/start`   | Posts the instructions and opens the first poll           |
+| `/end`     | `/end`     | Stops the game where it stands                            |
+| `/force`   | `/force`   | Forces a choice: `random`, or `1` through the last option |
+| `/forward` | `/forward` | Closes the poll now and takes whichever option is winning |
 
-All three routes verify Slack's request signature, reject anything unsigned, and refuse commands sent from any channel other than `SLACK_CHANNEL`.
-`/force` and `/end` additionally require the sending user to be in `SLACK_FORCE_USER_IDS`, and every route logs the invoking user and channel.
+All four routes verify Slack's request signature, reject anything unsigned, and refuse commands sent from any channel other than `SLACK_CHANNEL`.
+`/end`, `/force`, and `/forward` additionally require the sending user to be in `SLACK_FORCE_USER_IDS`, and every route logs the invoking user and channel.
 Only one game runs per channel at a time; a second `/begin` is turned away.
 
 ### How It Works
@@ -143,9 +144,9 @@ Only one game runs per channel at a time; a second `/begin` is turned away.
 For each entry it posts a poll, then races two outcomes:
 
 - `sleep()` until the round's deadline, `settings.intervalMs` after it opened, after which it counts reactions and looks for consensus
-- a hook keyed on the channel, which `/force` resumes to override the vote and `/end` resumes to stop the game
+- a hook keyed on the channel, which `/force` resumes to override the vote, `/forward` resumes to count the votes early, and `/end` resumes to stop the game
 
-Both commands ride the same hook, so each works exactly when a poll is open.
+All three ride the same hook, so each works exactly when a poll is open.
 
 Every Slack call lives in a `"use step"` function, so the workflow itself stays deterministic and replayable.
 

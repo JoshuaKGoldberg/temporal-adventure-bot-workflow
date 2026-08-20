@@ -3,6 +3,8 @@ import { indexToEmojiName } from "./utils/entries.js";
 
 export const forceHookToken = (channel: string) => `force:${channel}`;
 
+export const forwardedMessage = "⏩ ...and it's the next step now!";
+
 /**
  * Held for a whole run so a second game in the same channel can detect it.
  */

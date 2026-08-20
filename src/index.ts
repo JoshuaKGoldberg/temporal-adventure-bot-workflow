@@ -36,7 +36,14 @@ const hasRunningGame = async (channel: string) => {
 };
 
 const logCommand = (
-	at: "end" | "end-denied" | "force" | "force-denied" | "start",
+	at:
+		| "end"
+		| "end-denied"
+		| "force"
+		| "force-denied"
+		| "forward"
+		| "forward-denied"
+		| "start",
 	{ channelId, text, userId }: SlackCommand,
 ) => {
 	console.log(JSON.stringify({ at, channel: channelId, text, user: userId }));
@@ -84,7 +91,7 @@ const readCommand = (context: Context, body: string) => {
 
 interface AdminAction {
 	action: string;
-	at: "end" | "force";
+	at: "end" | "force" | "forward";
 }
 
 const authorizeAdmin = (
@@ -186,6 +193,35 @@ app.post("/force", async (context) => {
 	}
 
 	return context.text(`👍 You got it! Passing *${String(choice)}* along.`);
+});
+
+app.post("/forward", async (context) => {
+	const body = await context.req.text();
+	const request = readCommand(context, body);
+
+	if ("failure" in request) {
+		return request.failure;
+	}
+
+	const denial = authorizeAdmin(context, request.command, {
+		action: "skip the wait",
+		at: "forward",
+	});
+
+	if (denial) {
+		return denial;
+	}
+
+	try {
+		await resumeHook(forceHookToken(request.channel), {
+			forward: true,
+			userId: request.command.userId,
+		});
+	} catch {
+		return context.text("There's no poll waiting on a choice right now. 🤔");
+	}
+
+	return context.text("👍 You got it! Counting the votes now.");
 });
 
 app.post("/end", async (context) => {

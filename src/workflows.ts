@@ -2,6 +2,7 @@ import { createHook, sleep } from "workflow";
 
 import {
 	forceHookToken,
+	forwardedMessage,
 	gameHookToken,
 	printEnded,
 	printForced,
@@ -121,6 +122,8 @@ async function resolveChoice(
 		// instant, so a rejected /force can't hand the round a fresh interval.
 		const deadline = (await currentTimeMs()) + settings.intervalMs;
 
+		let forwarded = false;
+
 		for (;;) {
 			const remaining = deadline - (await currentTimeMs());
 
@@ -159,6 +162,13 @@ async function resolveChoice(
 				return undefined;
 			}
 
+			// /forward stops the wait without naming a choice, so the round falls
+			// through to the same consensus check an elapsed deadline reaches.
+			if ("forward" in outcome.input) {
+				forwarded = true;
+				break;
+			}
+
 			if (!withinOptions(outcome.input.choice, options)) {
 				await postMessage({
 					text: printRejected(outcome.input, options.length),
@@ -192,6 +202,10 @@ async function resolveChoice(
 				break;
 
 			default:
+				if (forwarded) {
+					await postMessage({ text: forwardedMessage });
+				}
+
 				return consensus.choice;
 		}
 	}

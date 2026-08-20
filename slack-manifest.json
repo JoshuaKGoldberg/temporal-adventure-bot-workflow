@@ -27,6 +27,12 @@
 				"should_escape": false,
 				"url": "https://temporal-adventure-bot-workflow.sentry.dev/force",
 				"usage_hint": "1"
+			},
+			{
+				"command": "/forward",
+				"description": "Close the poll now and take whichever option is winning.",
+				"should_escape": false,
+				"url": "https://temporal-adventure-bot-workflow.sentry.dev/forward"
 			}
 		]
 	},
