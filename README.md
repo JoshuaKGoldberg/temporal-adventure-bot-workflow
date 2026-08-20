@@ -37,20 +37,23 @@ The game logic is the same; durable execution comes from the Workflow DevKit ins
 
 3. Collect two credentials from the app's settings:
 
-   | Value                  | Where               |
-   | ---------------------- | ------------------- |
-   | `SLACK_BOT_TOKEN`      | OAuth & Permissions |
-   | `SLACK_SIGNING_SECRET` | Basic Information   |
+   | Value                  | Where                                                               |
+   | ---------------------- | ------------------------------------------------------------------- |
+   | `SLACK_BOT_TOKEN`      | **OAuth & Permissions** → _Bot User OAuth Token_, as `xoxb-...`     |
+   | `SLACK_SIGNING_SECRET` | **Basic Information** → _App Credentials_ → _Signing Secret_ → Show |
 
 4. Create the channel the game will play in, then invite the bot to it with `/invite @Adventure Bot`.
 
    Don't skip this: posting, reacting, reading reactions, and pinning all require membership, and skipping it is confusing to debug.
 
 5. Copy that channel's _ID_ (such as `C0123456789`) for `SLACK_CHANNEL`.
-   The channel name won't work.
+
+   Click the channel's name and the ID is at the bottom of the **About** tab, or take the last segment of the channel's copied link.
+   Its _name_ won't work: Slack's API answers `channel_not_found` for one.
 
 6. Collect the Slack user IDs allowed to run `/force`, comma separated, for `SLACK_FORCE_USER_IDS`.
 
+   Each person's profile has theirs under **⋮ More** → **Copy member ID**, such as `U0123456789,U9876543210`.
    `/force` ends a poll early and picks its outcome, so it's restricted to this allowlist.
    Slash commands are otherwise available to every member of a workspace.
    If the variable is unset, `/force` is refused for everyone rather than allowed for everyone.
@@ -94,14 +97,20 @@ Keep tunnels short-lived and don't share them.
 
 Deployments use the [Vercel World](https://useworkflow.dev/docs/deploying/world/vercel-world) with no configuration: storage, queuing, and durable timers come from the platform.
 
+Production is the [`sentry/temporal-adventure-bot-workflow`](https://vercel.com/sentry/temporal-adventure-bot-workflow) project, served at <https://temporal-adventure-bot-workflow.sentry.dev>, which is what the manifest's command URLs point at.
+
 ```shell
-vercel link
+vercel link --scope sentry
 vercel env add SLACK_BOT_TOKEN production
 vercel env add SLACK_CHANNEL production
 vercel env add SLACK_FORCE_USER_IDS production
 vercel env add SLACK_SIGNING_SECRET production
 vercel deploy --prod
 ```
+
+Each `vercel env add` prompts for the value, so paste it at the prompt rather than in the command and it stays out of your shell history.
+`vercel env ls production` then confirms all four landed.
+The project's [environment variables settings](https://vercel.com/sentry/temporal-adventure-bot-workflow/settings/environment-variables) do the same job in a browser, and can mark the token and signing secret _Sensitive_ so nobody can read them back out.
 
 Four things worth knowing:
 
