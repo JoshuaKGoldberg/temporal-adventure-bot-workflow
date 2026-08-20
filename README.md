@@ -27,7 +27,7 @@ The game logic is the same; durable execution comes from the Workflow DevKit ins
 
 1. Create the app from [`slack-manifest.json`](./slack-manifest.json): on [Slack API > Your Apps](https://api.slack.com/apps), choose **Create New App**, then **From a manifest**, then the workspace to install into, then paste the file's contents.
 
-   The manifest points both slash commands at this project's deployed URLs.
+   The manifest points the slash commands at this project's deployed URLs.
    Change them if you deploy somewhere else, or to a tunnel if you're running locally.
 
 2. Install the app to the workspace from its **Install App** settings.
@@ -72,6 +72,28 @@ The manifest asks for six bot scopes, and no more:
 Notably absent is `channels:history`, so the bot cannot read the channel's messages.
 `pins:read` is narrower but not nothing: it sees the messages that are pinned, which is how it finds its own instructions from a previous game.
 Beyond those, it only ever sees reaction names and counts on the polls it posted itself.
+
+`pins:read` is also the one scope the bot runs without.
+Lacking it, tidying up the previous game's pinned instructions logs a failure and the game carries on, so pins accumulate one per game.
+Every other scope in the table is load-bearing.
+
+### Updating the Slack App
+
+Slack keeps its own copy of the manifest, so editing [`slack-manifest.json`](./slack-manifest.json) changes nothing on its own.
+Paste the file's contents into the app's **App Manifest** settings to apply it.
+
+Adding or renaming a slash command takes effect as soon as that's saved.
+**Adding a scope needs three more steps, and missing any of them leaves the app failing with `missing_scope`:**
+
+1. Reinstall from the app's **Install App** settings.
+   A reinstall grants whatever scopes the app is configured with, so applying the manifest first is what makes the new scope real.
+   This may need a workspace admin's approval again.
+2. Copy `SLACK_BOT_TOKEN` from **OAuth & Permissions** and update it in Vercel.
+   Slack can issue a new bot token when scopes change, and the old one doesn't gain the new scope.
+3. Redeploy, since environment variable changes only reach new deployments.
+
+If `/begin` answers with a run ID and then nothing appears in the channel, read the Vercel runtime logs.
+The route replies before the workflow does any Slack work, so a step failing afterwards is silent in Slack and visible only there.
 
 ### Running Locally
 
