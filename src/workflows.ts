@@ -3,13 +3,14 @@ import { createHook, sleep } from "workflow";
 import {
 	forceHookToken,
 	gameHookToken,
+	printEnded,
 	printForced,
 	printRejected,
 } from "./force.js";
 import { game } from "./game.js";
 import { settings } from "./settings.js";
 import { createPoll, getReactions, pinMessage, postMessage } from "./slack.js";
-import { ForceChoice, ForceInput, GameOption } from "./types.js";
+import { ForceChoice, GameOption, PollInput } from "./types.js";
 import { formatEntryData } from "./utils/entries.js";
 import { collectConsensus } from "./utils/voting.js";
 
@@ -88,6 +89,12 @@ ${game[entry].description.join("\n")}
 
 		const next = await resolveChoice(poll, options, channel);
 
+		// /end resumed the poll's hook, so the run stops here instead of at an
+		// entry with no options of its own.
+		if (next === undefined) {
+			return "ended";
+		}
+
 		entry = next;
 	}
 }
@@ -114,13 +121,13 @@ async function resolveChoice(
 			// The option count rides along so /force can range-check before
 			// resuming, instead of the workflow rejecting a choice the route has
 			// already confirmed.
-			const forceHook = createHook<ForceInput>({
+			const forceHook = createHook<PollInput>({
 				metadata: { optionCount: options.length },
 				token: forceHookToken(channel),
 			});
 
 			const outcome = await Promise.race([
-				forceHook.then((forced) => ({ forced })),
+				forceHook.then((input) => ({ input })),
 				sleep(remaining).then(() => ({ elapsed: true }) as const),
 			]);
 
@@ -130,23 +137,29 @@ async function resolveChoice(
 			// next wait registers the same token and conflicts with this one
 			await sleep("1s");
 
-			if (!("forced" in outcome)) {
+			if (!("input" in outcome)) {
 				break;
 			}
 
-			if (!withinOptions(outcome.forced.choice, options)) {
+			if ("end" in outcome.input) {
+				await postMessage({ notify: true, text: printEnded(outcome.input) });
+
+				return undefined;
+			}
+
+			if (!withinOptions(outcome.input.choice, options)) {
 				await postMessage({
-					text: printRejected(outcome.forced, options.length),
+					text: printRejected(outcome.input, options.length),
 				});
 				continue;
 			}
 
-			await postMessage({ text: printForced(outcome.forced) });
+			await postMessage({ text: printForced(outcome.input) });
 
 			const index =
-				outcome.forced.choice === "random"
+				outcome.input.choice === "random"
 					? await pickRandomIndex(options.length)
-					: outcome.forced.choice - 1;
+					: outcome.input.choice - 1;
 
 			return options[index].next;
 		}

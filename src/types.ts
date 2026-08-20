@@ -1,3 +1,8 @@
+export interface EndInput {
+	end: true;
+	userId: string;
+}
+
 export type ForceChoice = "random" | number;
 
 export interface ForceInput {
@@ -21,6 +26,8 @@ export interface NextChoice {
 	choice: string;
 	forced?: ForceChoice;
 }
+
+export type PollInput = EndInput | ForceInput;
 
 export interface Reaction {
 	count: number;

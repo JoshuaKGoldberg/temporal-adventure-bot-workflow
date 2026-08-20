@@ -51,12 +51,12 @@ The game logic is the same; durable execution comes from the Workflow DevKit ins
    Click the channel's name and the ID is at the bottom of the **About** tab, or take the last segment of the channel's copied link.
    Its _name_ won't work: Slack's API answers `channel_not_found` for one.
 
-6. Collect the Slack user IDs allowed to run `/force`, comma separated, for `SLACK_FORCE_USER_IDS`.
+6. Collect the Slack user IDs allowed to run `/force` and `/end`, comma separated, for `SLACK_FORCE_USER_IDS`.
 
    Each person's profile has theirs under **⋮ More** → **Copy member ID**, such as `U0123456789,U9876543210`.
-   `/force` ends a poll early and picks its outcome, so it's restricted to this allowlist.
+   The allowlist gates both `/force`, which ends a poll early and picks its outcome, and `/end`, which stops the game.
    Slash commands are otherwise available to every member of a workspace.
-   If the variable is unset, `/force` is refused for everyone rather than allowed for everyone.
+   If the variable is unset, both are refused for everyone rather than allowed for everyone.
 
 The manifest asks for five bot scopes, and no more:
 
@@ -116,8 +116,8 @@ Four things worth knowing:
 
 - Environment variable changes only apply to _new_ deployments, so redeploy after changing one.
 - Deployment Protection blocks Slack's requests before they reach the app.
-  Turn it off for production, or add a bypass secret and append `?x-vercel-protection-bypass=<secret>` to both command URLs.
-  The bypass secret is the better option: with protection off, the signing secret is the only control on two public endpoints.
+  Turn it off for production, or add a bypass secret and append `?x-vercel-protection-bypass=<secret>` to every command URL.
+  The bypass secret is the better option: with protection off, the signing secret is the only control on the app's public endpoints.
 - One project serves one workspace, since `SLACK_CHANNEL` holds a single channel.
   Use a second project to run a test workspace alongside a real one.
 - The app doesn't use Slack token rotation, so `SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET` don't expire on their own.
@@ -128,10 +128,11 @@ Finally, point the slash commands at the deployment:
 | Command  | Route    | What it does                                              |
 | -------- | -------- | --------------------------------------------------------- |
 | `/begin` | `/start` | Posts the instructions and opens the first poll           |
+| `/end`   | `/end`   | Stops the game where it stands                            |
 | `/force` | `/force` | Forces a choice: `random`, or `1` through the last option |
 
-Both routes verify Slack's request signature, reject anything unsigned, and refuse commands sent from any channel other than `SLACK_CHANNEL`.
-`/force` additionally requires the sending user to be in `SLACK_FORCE_USER_IDS`, and both routes log the invoking user and channel.
+All three routes verify Slack's request signature, reject anything unsigned, and refuse commands sent from any channel other than `SLACK_CHANNEL`.
+`/force` and `/end` additionally require the sending user to be in `SLACK_FORCE_USER_IDS`, and every route logs the invoking user and channel.
 Only one game runs per channel at a time; a second `/begin` is turned away.
 
 ### How It Works
@@ -140,7 +141,9 @@ Only one game runs per channel at a time; a second `/begin` is turned away.
 For each entry it posts a poll, then races two outcomes:
 
 - `sleep()` until the round's deadline, `settings.intervalMs` after it opened, after which it counts reactions and looks for consensus
-- a hook keyed on the channel, which `/force` resumes to override the vote
+- a hook keyed on the channel, which `/force` resumes to override the vote and `/end` resumes to stop the game
+
+Both commands ride the same hook, so each works exactly when a poll is open.
 
 Every Slack call lives in a `"use step"` function, so the workflow itself stays deterministic and replayable.
 

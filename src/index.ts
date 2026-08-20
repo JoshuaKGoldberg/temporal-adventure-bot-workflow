@@ -36,7 +36,7 @@ const hasRunningGame = async (channel: string) => {
 };
 
 const logCommand = (
-	at: "force" | "force-denied" | "start",
+	at: "end" | "end-denied" | "force" | "force-denied" | "start",
 	{ channelId, text, userId }: SlackCommand,
 ) => {
 	console.log(JSON.stringify({ at, channel: channelId, text, user: userId }));
@@ -82,6 +82,37 @@ const readCommand = (context: Context, body: string) => {
 	return { channel, command };
 };
 
+interface AdminAction {
+	action: string;
+	at: "end" | "force";
+}
+
+const authorizeAdmin = (
+	context: Context,
+	command: SlackCommand,
+	{ action, at }: AdminAction,
+) => {
+	const admins = allowedForcers();
+
+	// Fail closed: an empty allowlist is a misconfiguration, not permission for
+	// the whole workspace to drive the game.
+	if (admins.size === 0) {
+		console.error("Missing SLACK_FORCE_USER_IDS.");
+
+		return refuse(context, "Nobody is set up to drive the bot. 🛠️");
+	}
+
+	if (!admins.has(command.userId)) {
+		logCommand(`${at}-denied`, command);
+
+		return refuse(context, `Only an adventure admin can ${action}. 🙅`);
+	}
+
+	logCommand(at, command);
+
+	return undefined;
+};
+
 const app = new Hono();
 
 app.get("/", (context) => context.text("Adventure bot is awake. 👋"));
@@ -113,23 +144,14 @@ app.post("/force", async (context) => {
 		return request.failure;
 	}
 
-	const forcers = allowedForcers();
+	const denial = authorizeAdmin(context, request.command, {
+		action: "force a choice",
+		at: "force",
+	});
 
-	// Fail closed: an empty allowlist is a misconfiguration, not permission for
-	// the whole workspace to override votes.
-	if (forcers.size === 0) {
-		console.error("Missing SLACK_FORCE_USER_IDS.");
-
-		return refuse(context, "Nobody is set up to force choices. 🛠️");
+	if (denial) {
+		return denial;
 	}
-
-	if (!forcers.has(request.command.userId)) {
-		logCommand("force-denied", request.command);
-
-		return refuse(context, "Only an adventure admin can force a choice. 🙅");
-	}
-
-	logCommand("force", request.command);
 
 	const choice = parseCommandText(request.command.text);
 
@@ -164,6 +186,35 @@ app.post("/force", async (context) => {
 	}
 
 	return context.text(`👍 You got it! Passing *${String(choice)}* along.`);
+});
+
+app.post("/end", async (context) => {
+	const body = await context.req.text();
+	const request = readCommand(context, body);
+
+	if ("failure" in request) {
+		return request.failure;
+	}
+
+	const denial = authorizeAdmin(context, request.command, {
+		action: "end the game",
+		at: "end",
+	});
+
+	if (denial) {
+		return denial;
+	}
+
+	try {
+		await resumeHook(forceHookToken(request.channel), {
+			end: true,
+			userId: request.command.userId,
+		});
+	} catch {
+		return context.text("There's no game waiting to be ended right now. 🤔");
+	}
+
+	return context.text("👍 You got it! Wrapping the game up.");
 });
 
 export default app;
